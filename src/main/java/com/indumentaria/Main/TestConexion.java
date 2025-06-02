@@ -1,8 +1,9 @@
 
-package main;
+package com.indumentaria.Main;
+
+import com.indumentaria.Config.DataBaseConnectionPool;
 import java.sql.Connection;
 import java.sql.SQLException;
-import config.DatabaseConnectionPool;
 
 public class TestConexion {
 public static void main(String[] args) {
@@ -11,7 +12,7 @@ public static void main(String[] args) {
          *     se cierre automáticamente al salir del bloque.
          * 🔹 No es necesario llamar explícitamente a conn.close().
          */
-        try (Connection conn = DatabaseConnectionPool.getConnection()) {
+        try (Connection conn = DataBaseConnectionPool.getConnection()) {
             if (conn != null) {
                 System.out.println("✅ Conexión establecida con éxito.");
             } else {

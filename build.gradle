@@ -12,6 +12,16 @@ repositories {
 dependencies {
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+
+    // Dependencia de HikariCP
+    implementation 'com.zaxxer:HikariCP:5.1.0'
+
+    // JDBC Driver para MySQL (MySQL Connector/J)
+    implementation 'mysql:mysql-connector-java:8.0.33'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.30'
+    annotationProcessor 'org.projectlombok:lombok:1.18.30'
 }
 
 test {
