@@ -18,103 +18,100 @@ public class PersonaDAO implements GenericDAO<Persona>{
 
     @Override
     public void insertar(Persona persona)throws Exception {
-
-        String sql = "INSERT INTO personas (nombre, apellido, dni,id_domicilio) VALUES (?,?,?,?)";
+        // CORREGIDO: 'id_domicilio' a 'domicilio_id'
+        String sql = "INSERT INTO personas (nombre, apellido, dni, domicilio_id) VALUES (?,?,?,?)";
         try(Connection conn = DataBaseConnectionPool.getConnection();
             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);) {
             stmt.setString(1, persona.getNombre());
             stmt.setString(2, persona.getApellido());
             stmt.setString(3, persona.getDni());
-            if(persona.getDomicilio() != null){
+            if(persona.getDomicilio() != null && persona.getDomicilio().getId() > 0){
                 stmt.setInt(4, persona.getDomicilio().getId());
             }else{
                 stmt.setNull(4, java.sql.Types.INTEGER);
             }
+
+            stmt.executeUpdate();
+
             try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
-                    persona.setId(generatedKeys.getInt(1)); // Asigna el ID generado a la persona
+                    persona.setId(generatedKeys.getInt(1));
                     System.out.println("Persona insertada con ID: " + persona.getId());
                 } else {
                     throw new SQLException("La inserción de la persona falló, no se obtuvo ID generado.");
                 }
             }
-
-
-
-            stmt.executeUpdate();
-
         }
-
     }
 
     @Override
     public void insertTx(Persona persona, Connection conn) throws Exception {
-        String sql = "INSERT INTO personas (nombre, apellido, dni,id_domicilio) VALUES (?,?,?,?)";
+        // CORREGIDO: 'id_domicilio' a 'domicilio_id'
+        String sql = "INSERT INTO personas (nombre, apellido, dni, domicilio_id) VALUES (?,?,?,?)";
         try(PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);) {
             stmt.setString(1, persona.getNombre());
             stmt.setString(2, persona.getApellido());
             stmt.setString(3, persona.getDni());
-            if(persona.getDomicilio() != null){
+            if(persona.getDomicilio() != null && persona.getDomicilio().getId() > 0){
                 stmt.setInt(4, persona.getDomicilio().getId());
             }else{
                 stmt.setNull(4, java.sql.Types.INTEGER);
             }
-            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    persona.setId(generatedKeys.getInt(1)); // Asigna el ID generado a la persona
-                    System.out.println("Persona insertada con ID: " + persona.getId());
-                } else {
-                    throw new SQLException("La inserción de la persona falló, no se obtuvo ID generado.");
-                }
-            }
-
-
 
             stmt.executeUpdate();
 
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    persona.setId(generatedKeys.getInt(1));
+                    System.out.println("Persona insertada con ID (Tx): " + persona.getId());
+                } else {
+                    throw new SQLException("La inserción de la persona falló (Tx), no se obtuvo ID generado.");
+                }
+            }
         }
-
     }
 
     @Override
     public void actualizar(Persona persona) throws Exception {
-
-        // Primero, actualizar el Domicilio asociado si existe y tiene un ID
         if (persona.getDomicilio() != null && persona.getDomicilio().getId() > 0) {
             domicilioDAO.actualizar(persona.getDomicilio());
         } else if (persona.getDomicilio() != null && persona.getDomicilio().getId() == 0) {
-            // Si el domicilio es nuevo pero estamos actualizando una persona existente,
-            // podemos insertarlo y luego actualizar la persona con el nuevo ID de domicilio.
             domicilioDAO.insertar(persona.getDomicilio());
         }
-        String sql = "UPDATE personas SET nombre = ?, apellido = ? WHERE id = ?";
+        // CORREGIDO: 'id_domicilio' a 'domicilio_id'
+        String sql = "UPDATE personas SET nombre = ?, apellido = ?, dni = ?, domicilio_id = ? WHERE id = ?";
         try(Connection conn = DataBaseConnectionPool.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, persona.getNombre());
             ps.setString(2, persona.getApellido());
+            ps.setString(3, persona.getDni());
+            if(persona.getDomicilio() != null && persona.getDomicilio().getId() > 0){
+                ps.setInt(4, persona.getDomicilio().getId());
+            } else {
+                ps.setNull(4, java.sql.Types.INTEGER);
+            }
+            ps.setInt(5, persona.getId());
+            ps.executeUpdate();
         }
-
     }
 
     @Override
     public void eliminar(int id)throws Exception {
-
         String sql = "DELETE FROM personas WHERE id = ?";
         try(Connection con= DataBaseConnectionPool.getConnection();
             PreparedStatement stmt = con.prepareStatement(sql)){
             stmt.setInt(1, id);
             stmt.executeUpdate();
         }catch (SQLException e){
-            throw new SQLException("No se pudo eliminar la wea" + e.getMessage());
+            throw new SQLException("No se pudo eliminar la persona con ID " + id + ": " + e.getMessage());
         }
-
     }
 
     @Override
     public Persona getById(int id) throws Exception {
-        // Realizamos un JOIN con la tabla domicilios para obtener todos los datos
-        String sql = "SELECT p.id, p.nombre, p.apellido, p.dni, p.id_domicilio, " +
-                "d.id, d.calle, d.numero " +
-                "FROM personas p JOIN domicilios d ON p.id_domicilio = d.id " +
+        // CORREGIDO: 'id_domicilio' a 'domicilio_id' en la cláusula SELECT y JOIN
+        String sql = "SELECT p.id, p.nombre, p.apellido, p.dni, p.domicilio_id, " +
+                "d.id AS dom_id, d.calle, d.numero " +
+                "FROM personas p LEFT JOIN domicilios d ON p.domicilio_id = d.id " +
                 "WHERE p.id = ?";
         try (Connection conn = DataBaseConnectionPool.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -128,13 +125,16 @@ public class PersonaDAO implements GenericDAO<Persona>{
                     persona.setApellido(rs.getString("apellido"));
                     persona.setDni(rs.getString("dni"));
 
-                    // Reconstruir el objeto Domicilio
-                    Domicilio domicilio = new Domicilio();
-                    domicilio.setId(rs.getInt("d.id"));
-                    domicilio.setCalle(rs.getString("calle"));
-                    domicilio.setNumero(rs.getString("numero"));
-
-                    persona.setDomicilio(domicilio);
+                    int domicilioId = rs.getInt("domicilio_id"); // CORREGIDO: 'id_domicilio' a 'domicilio_id'
+                    if (domicilioId > 0) {
+                        Domicilio domicilio = new Domicilio();
+                        domicilio.setId(rs.getInt("dom_id"));
+                        domicilio.setCalle(rs.getString("calle"));
+                        domicilio.setNumero(rs.getString("numero"));
+                        persona.setDomicilio(domicilio);
+                    } else {
+                        persona.setDomicilio(null);
+                    }
                     return persona;
                 }
             }
@@ -147,10 +147,10 @@ public class PersonaDAO implements GenericDAO<Persona>{
     @Override
     public List<Persona> getAll() throws Exception {
         List<Persona> personas = new ArrayList<>();
-        // Realizamos un JOIN con la tabla domicilios para obtener todos los datos
-        String sql = "SELECT p.id, p.nombre, p.apellido, p.dni, p.id_domicilio, " +
-                "d.id, d.calle, d.numero " +
-                "FROM personas p JOIN domicilios d ON p.id_domicilio = d.id";
+        // CORREGIDO: 'id_domicilio' a 'domicilio_id' en la cláusula SELECT y JOIN
+        String sql = "SELECT p.id, p.nombre, p.apellido, p.dni, p.domicilio_id, " +
+                "d.id AS dom_id, d.calle, d.numero " +
+                "FROM personas p LEFT JOIN domicilios d ON p.domicilio_id = d.id";
         try (Connection conn = DataBaseConnectionPool.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -162,13 +162,16 @@ public class PersonaDAO implements GenericDAO<Persona>{
                 persona.setApellido(rs.getString("apellido"));
                 persona.setDni(rs.getString("dni"));
 
-                // Reconstruir el objeto Domicilio
-                Domicilio domicilio = new Domicilio();
-                domicilio.setId(rs.getInt("d.id"));
-                domicilio.setCalle(rs.getString("calle"));
-                domicilio.setNumero(rs.getString("numero"));
-
-                persona.setDomicilio(domicilio);
+                int domicilioId = rs.getInt("domicilio_id"); // CORREGIDO: 'id_domicilio' a 'domicilio_id'
+                if (domicilioId > 0) {
+                    Domicilio domicilio = new Domicilio();
+                    domicilio.setId(rs.getInt("dom_id"));
+                    domicilio.setCalle(rs.getString("calle"));
+                    domicilio.setNumero(rs.getString("numero"));
+                    persona.setDomicilio(domicilio);
+                } else {
+                    persona.setDomicilio(null);
+                }
                 personas.add(persona);
             }
         } catch (SQLException e) {

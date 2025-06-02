@@ -36,6 +36,12 @@ public class PersonaServiceImpl implements GenericService<Persona>{
             domicilioDAO.insertar(persona.getDomicilio());
         }
 
+        if(persona.getDomicilio() != null && persona.getDomicilio().getId() == 0){
+            domicilioDAO.insertar(persona.getDomicilio()); // Inserta el domicilio y le asigna un ID
+        } else if (persona.getDomicilio() != null && persona.getDomicilio().getId() > 0) {
+            domicilioDAO.actualizar(persona.getDomicilio()); // Si ya tiene ID, lo actualiza
+        }
+
         personaDAO.insertar(persona);
 
     }
@@ -69,6 +75,17 @@ public class PersonaServiceImpl implements GenericService<Persona>{
             } else {
                 domicilioDAO.actualizar(persona.getDomicilio());
             }
+            if (persona.getDomicilio() != null) {
+                if (persona.getDomicilio().getId() == 0) { // Si el domicilio es nuevo (ID 0)
+                    domicilioDAO.insertTx(persona.getDomicilio(), conn); // Inserta y asigna el ID al objeto Domicilio
+                } else { // Si el domicilio ya existe (tiene un ID)
+                    domicilioDAO.actualizar(persona.getDomicilio());
+                }
+            } else {
+                // Si la persona no tiene domicilio, el PersonaDAO se encargará de setear id_domicilio a NULL
+                System.out.println("La persona se está insertando sin domicilio asociado.");
+            }
+
             personaDAO.insertTx(persona,conn);
             tx.commit();
             System.out.println("Insercion de la persona con exito");
@@ -84,11 +101,20 @@ public class PersonaServiceImpl implements GenericService<Persona>{
                 conn.close();
             }
         }
-
     }
 
     @Override
     public void actualizar(Persona entidad) throws Exception {
+        if(entidad.getNombre() == null || entidad.getNombre().trim().isEmpty()){
+            throw new Exception("El nombre de la persona no puede ser vacio");
+        }
+        if(entidad.getApellido() == null || entidad.getApellido().trim().isEmpty() ){
+            throw new Exception("El apellido de la persona no puede ser vacio");
+        }
+        if(entidad.getDni() == null || entidad.getDni().trim().isEmpty()){
+            throw new Exception("El dni de la persona no puede ser vacio");
+        }
+        personaDAO.actualizar(entidad);
 
     }
 

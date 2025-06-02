@@ -32,7 +32,7 @@ public class DomicilioDAO implements GenericDAO<Domicilio>{
 
     @Override
     public void insertTx(Domicilio domicilio, Connection conn) throws Exception {
-        String sql="INSERT INTO domicilios VALUES (?, ?)";
+        String sql="INSERT INTO domicilios(calle, numero) VALUES (?, ?)";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             stmt.setString(1, domicilio.getCalle());
             stmt.setString(2, domicilio.getNumero());
