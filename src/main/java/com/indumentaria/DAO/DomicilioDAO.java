@@ -20,7 +20,7 @@ public class DomicilioDAO implements GenericDAO<Domicilio>{
 
             try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
-                    domicilio.setId(generatedKeys.getInt(1)); // <-- Asigna el ID generado al objeto Domicilio
+                    domicilio.setId(generatedKeys.getInt(1)); // asignamos el id generado al objeto Domicilio
                     System.out.println("Domicilio insertado con ID: " + domicilio.getId());
                 } else {
                     throw new SQLException("La inserción del domicilio falló, no se obtuvo ID generado.");
@@ -33,14 +33,14 @@ public class DomicilioDAO implements GenericDAO<Domicilio>{
     @Override
     public void insertTx(Domicilio domicilio, Connection conn) throws Exception {
         String sql="INSERT INTO domicilios(calle, numero) VALUES (?, ?)";
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try (PreparedStatement stmt = conn.prepareStatement(sql,Statement.RETURN_GENERATED_KEYS);) {
             stmt.setString(1, domicilio.getCalle());
             stmt.setString(2, domicilio.getNumero());
             stmt.executeUpdate();
 
             try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
-                    domicilio.setId(generatedKeys.getInt(1)); // <-- Asigna el ID generado al objeto Domicilio
+                    domicilio.setId(generatedKeys.getInt(1));
                     System.out.println("Domicilio insertado con ID: " + domicilio.getId());
                 } else {
                     throw new SQLException("La inserción del domicilio falló, no se obtuvo ID generado.");
