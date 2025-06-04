@@ -1,13 +1,14 @@
 package com.indumentaria.Models;
 
 import lombok.*;
+import lombok.experimental.SuperBuilder;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @ToString
-@Builder
+@SuperBuilder
 public class Persona {
     private int id;
     private String nombre;

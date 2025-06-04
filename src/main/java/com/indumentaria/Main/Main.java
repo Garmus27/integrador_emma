@@ -8,47 +8,65 @@ import com.indumentaria.services.DomicilioServiceImpl;
 import com.indumentaria.services.GenericService;
 import com.indumentaria.services.PersonaServiceImpl;
 
+import java.util.List;
+
 public class Main {
     public static void main(String[] args) {
 
-        // crear DomicilioDAO
+        // creamos DomicilioDAO
         DomicilioDAO domicilioDAO = new DomicilioDAO();
-
-        // crear DomicilioService
-        GenericService<Domicilio> domicilioGenericService = new DomicilioServiceImpl(domicilioDAO);
-
+        // creamos DomicilioService
+        DomicilioServiceImpl domicilioGenericService = new DomicilioServiceImpl(domicilioDAO);
+        //creamos PersonaDAO
+        PersonaDAO personaDAO = new PersonaDAO(domicilioDAO);
+        //creamos PersonaService
+        PersonaServiceImpl personaService = new PersonaServiceImpl(personaDAO, domicilioGenericService);
         try {
-            // Instanciar y potencialmente insertar un Domicilio
-            Domicilio domicilio = new Domicilio(
-                    "miguel cane",
-                    "123"
-            );
+            /* Instanciar y potencialmente insertar un Domicilio
+            Domicilio domicilio = Domicilio.builder()
+                    .calle("cochabamba")
+                    .numero("573")
+                    .build();
 
-            // Es mejor insertar el domicilio a través de su servicio, preferiblemente con Tx si la necesitas
-            // Para este ejemplo, lo insertaremos con el método insertar normal primero para que tenga un ID.
-            // Si quieres que el domicilio sea insertado dentro de la misma transacción que la persona,
-            // entonces NO lo insertes aquí, sino deja que PersonaServiceImpl.insertarTx lo haga.
-            // Pero si el domicilio ya existe en la DB, solo necesitas su ID.
             domicilioGenericService.insertar(domicilio); // Usamos insertar simple para que el domicilio tenga un ID antes de pasarlo a la persona.
-            // Si quieres que el domicilio se gestione dentro de la transacción de la persona,
-            // entonces esta línea NO debería ir, y el domicilio.setId(0) o un new Domicilio()
-            // sin ID inicial debería usarse.
+            //tiramos un mensaje por si falla, saber que aca es donde fallo
             System.out.println("el domicilio se guardo correctamente con ID: " + domicilio.getId());
 
-            // Crear PersonaDAO y PersonaService
-            PersonaDAO personaDAO = new PersonaDAO(domicilioDAO);
-            GenericService<Persona> personaService = new PersonaServiceImpl(personaDAO, domicilioDAO);
+            Persona persona = Persona.builder()
+                    .nombre("Armando Esteban")
+                    .apellido("Quito")
+                    .dni("485261523")
+                    .domicilio(domicilio)
+                    .build();
 
-            // Crear Persona con el Domicilio asociado
-            Persona persona = new Persona();
-            persona.setNombre("Juan");
-            persona.setApellido("Perez");
-            persona.setDni("12345678");
-            persona.setDomicilio(domicilio); // Asignar el Domicilio (que ya tiene un ID si la línea anterior se ejecutó)
+
 
             // Insertar Persona (usando insertTx para la integridad transaccional)
-            personaService.insertarTx(persona);
+            personaService.insertar(persona);
             System.out.println("La persona se guardó correctamente con ID: " + persona.getId());
+
+            //Creamos otro domicilio que no insertaremos con su servicio sino que lo insertaremos con persona
+            Domicilio dom2 = Domicilio.builder()
+                    .calle("Belgrano")
+                    .numero("1731")
+                    .build();
+
+            // Insertamos una persona
+            Persona persona2 = Persona.builder()
+                    .nombre("Matias")
+                    .apellido("Lampone")
+                    .dni("52156987")
+                    .domicilio(dom2)
+                    .build();
+
+            personaService.insertar(persona2);*/
+            List<Persona> lista = personaService.getAll();
+            lista.forEach(System.out::println);
+
+            Persona persona = personaService.getById(17);
+            System.out.println(persona);
+
+
 
         } catch (Exception e) {
             System.err.println("Error en la operación: " + e.getMessage());

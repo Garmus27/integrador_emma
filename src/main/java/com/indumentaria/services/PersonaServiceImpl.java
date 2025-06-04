@@ -7,129 +7,156 @@ import com.indumentaria.DAO.PersonaDAO;
 import com.indumentaria.Models.Persona;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 
 public class PersonaServiceImpl implements GenericService<Persona>{
 
     private final PersonaDAO personaDAO;
-    private final DomicilioDAO domicilioDAO;
+    private final DomicilioServiceImpl domicilioServiceImpl;
 
-    public PersonaServiceImpl(PersonaDAO personaDAO, DomicilioDAO domicilioDAO) {
+    public PersonaServiceImpl(PersonaDAO personaDAO, DomicilioServiceImpl domicilioServiceImpl) {
         this.personaDAO = personaDAO;
-        this.domicilioDAO = domicilioDAO;
+        this.domicilioServiceImpl = domicilioServiceImpl;
     }
-
-
 
     @Override
     public void insertar(Persona persona) throws Exception {
+        // Validaciones mejoradas
         if(persona.getNombre() == null || persona.getNombre().trim().isEmpty()){
-            throw new Exception("El nombre del persona no puede ser vacio");
+            throw new IllegalArgumentException("El nombre de la persona no puede ser nulo o vacío"); // Usar IllegalArgumentException
         }
         if(persona.getApellido() == null || persona.getApellido().trim().isEmpty() ){
-            throw new Exception("El apellido del persona no puede ser vacio");
+            throw new IllegalArgumentException("El apellido de la persona no puede ser nulo o vacío"); // Usar IllegalArgumentException
         }
         if(persona.getDni() == null || persona.getDni().trim().isEmpty()){
-            throw new Exception("El dni del persona no puede ser vacio");
-        }
-        if(persona.getDomicilio() != null && persona.getDomicilio().getId() >0){
-            domicilioDAO.insertar(persona.getDomicilio());
+            throw new IllegalArgumentException("El DNI de la persona no puede ser nulo o vacío"); // Usar IllegalArgumentException
         }
 
-        if(persona.getDomicilio() != null && persona.getDomicilio().getId() == 0){
-            domicilioDAO.insertar(persona.getDomicilio()); // Inserta el domicilio y le asigna un ID
-        } else if (persona.getDomicilio() != null && persona.getDomicilio().getId() > 0) {
-            domicilioDAO.actualizar(persona.getDomicilio()); // Si ya tiene ID, lo actualiza
+        // Lógica de domicilio para insertar no transaccional:
+        // Si tiene domicilio y es nuevo, lo inserta. Si tiene y ya existe, lo actualiza.
+        // Si no tiene domicilio, simplemente se inserta la persona sin FK.
+        if (persona.getDomicilio() != null) {
+            if (persona.getDomicilio().getId() == 0) {
+                domicilioServiceImpl.insertar(persona.getDomicilio());
+            } else { // Asumimos que si tiene ID > 0, ya existe en la DB y puede necesitar actualización
+                domicilioServiceImpl.actualizar(persona.getDomicilio()); // *** puede quitarse par ahorrar una conexion a la db
+            }
         }
-
         personaDAO.insertar(persona);
-
     }
 
     @Override
     public void insertarTx(Persona persona) throws Exception {
-        Connection conn = null;
+        /*Connection conn = null;
         TransactionManager tx = new TransactionManager();
 
         try {
             conn = DataBaseConnectionPool.getConnection();
             tx.setConn(conn);
             tx.starTransaction();
+            System.out.println("Trasaccion iniciada. AutoCommit deshabilitado para " + persona.getNombre() + " " + persona.getApellido()); // Log más específico
 
+            // Validaciones
             if (persona.getNombre() == null || persona.getNombre().trim().isEmpty()) {
                 throw new IllegalArgumentException("El nombre de la persona no puede ser nulo o vacío.");
+            }
+            if (persona.getApellido() == null || persona.getApellido().trim().isEmpty()) {
+                throw new IllegalArgumentException("El apellido de la persona no puede ser nulo o vacío.");
             }
             if (persona.getDni() == null || persona.getDni().trim().isEmpty()) {
                 throw new IllegalArgumentException("El DNI de la persona no puede ser nulo o vacío.");
             }
-            if (persona.getDomicilio() == null) {
-                throw new IllegalArgumentException("La persona debe tener un domicilio.");
-            }
-            if (persona.getDomicilio().getCalle() == null || persona.getDomicilio().getCalle().trim().isEmpty()) {
-                throw new IllegalArgumentException("La calle del domicilio no puede ser nula o vacía.");
-            }
 
-            if (persona.getDomicilio().getId() == 0){ // si el domicilio es nuevo
-                domicilioDAO.insertTx(persona.getDomicilio(), conn);
-
-            } else {
-                domicilioDAO.actualizar(persona.getDomicilio());
-            }
             if (persona.getDomicilio() != null) {
-                if (persona.getDomicilio().getId() == 0) { // Si el domicilio es nuevo (ID 0)
-                    domicilioDAO.insertTx(persona.getDomicilio(), conn); // Inserta y asigna el ID al objeto Domicilio
-                } else { // Si el domicilio ya existe (tiene un ID)
-                    domicilioDAO.actualizar(persona.getDomicilio());
+                if (persona.getDomicilio().getCalle() == null || persona.getDomicilio().getCalle().trim().isEmpty()) {
+                    throw new IllegalArgumentException("La calle del domicilio no puede ser nula o vacía.");
+                }
+                if (persona.getDomicilio().getNumero() == null || persona.getDomicilio().getNumero().trim().isEmpty()) {
+                    throw new IllegalArgumentException("El número del domicilio no puede ser nulo o vacío.");
+                }
+            }
+            System.out.println("--> Validaciones de Persona completadas para " + persona.getNombre());
+
+
+
+            if (persona.getDomicilio() != null) {
+                System.out.println("--> Manejando Domicilio para " + persona.getNombre() + " (ID Domicilio inicial: " + persona.getDomicilio().getId() + ")");
+                if (persona.getDomicilio().getId() == 0) {
+                    domicilioServiceImpl.insertTx(persona.getDomicilio(), conn);
+                    System.out.println("--> Domicilio nuevo insertado con ID: " + persona.getDomicilio().getId());
+                } else {
+                    domicilioServiceImpl.actualizar(persona.getDomicilio());
+                    System.out.println("--> Domicilio existente actualizado con ID: " + persona.getDomicilio().getId());
                 }
             } else {
-                // Si la persona no tiene domicilio, el PersonaDAO se encargará de setear id_domicilio a NULL
-                System.out.println("La persona se está insertando sin domicilio asociado.");
+                System.out.println("--> La persona se está insertando sin domicilio asociado (domicilio es null).");
             }
 
+
+            System.out.println("--> Preparando para insertar Persona: " + persona.getNombre() + " con Domicilio ID: " + (persona.getDomicilio() != null ? persona.getDomicilio().getId() : "null"));
             personaDAO.insertTx(persona,conn);
+            System.out.println("--> Persona insertada en la transacción con ID: " + persona.getId());
+
+            // Confirma la transacción
             tx.commit();
-            System.out.println("Insercion de la persona con exito");
+            System.out.println("Transaccion realizada, cambios Commitiados para " + persona.getNombre());
+            System.out.println("Insercion de la persona con exito para " + persona.getNombre());
 
         }catch(Exception e){
-            System.out.println("ERROR en la trasaccion");
+            System.err.println("ERROR en la transacción de Persona para " + persona.getNombre() + ": " + e.getMessage()); // Mensaje más detallado
+            e.printStackTrace();
             if(conn != null){
-                tx.rollback();
+                try { // Añadir try-catch por si las moscas
+                    tx.rollback();
+                    System.out.println("Transaccion cancelada, RollBack para " + persona.getNombre());
+                } catch (SQLException rollbackEx) {
+                    System.err.println("Error durante el rollback para " + persona.getNombre() + ": " + rollbackEx.getMessage());
+                }
             }
-            throw e;
+            throw e; // Relanza la excepción para que la maneje el main
         }finally {
             if(conn != null){
-                conn.close();
+                try {
+                    conn.close();
+                    System.out.println("Conexión cerrada para " + persona.getNombre() + ".");
+                } catch (SQLException e) {
+                    System.err.println("Error al cerrar la conexión para " + persona.getNombre() + ": " + e.getMessage());
+                }
             }
-        }
+        }*/
     }
 
     @Override
     public void actualizar(Persona entidad) throws Exception {
+
         if(entidad.getNombre() == null || entidad.getNombre().trim().isEmpty()){
-            throw new Exception("El nombre de la persona no puede ser vacio");
+            throw new IllegalArgumentException("El nombre de la persona no puede ser nulo o vacío");
         }
         if(entidad.getApellido() == null || entidad.getApellido().trim().isEmpty() ){
-            throw new Exception("El apellido de la persona no puede ser vacio");
+            throw new IllegalArgumentException("El apellido de la persona no puede ser nulo o vacío");
         }
         if(entidad.getDni() == null || entidad.getDni().trim().isEmpty()){
-            throw new Exception("El dni de la persona no puede ser vacio");
+            throw new IllegalArgumentException("El DNI de la persona no puede ser nulo o vacío");
         }
         personaDAO.actualizar(entidad);
-
     }
 
     @Override
     public void eliminar(int id) throws Exception {
 
+        personaDAO.eliminar(id);
     }
 
     @Override
     public Persona getById(int id) throws Exception {
-        return null;
+
+        return personaDAO.getById(id);
     }
 
     @Override
     public List<Persona> getAll() throws Exception {
-        return List.of();
+
+        return personaDAO.getAll();
     }
 }
